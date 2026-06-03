@@ -106,10 +106,34 @@ def scrape_automation_news():
     # Các nguồn cấp tin công nghệ và tự động hóa uy tín (RSS Feeds)
     rss_urls = [
         "https://vnexpress.net/rss/khoa-hoc.rss",
-        "https://thanhnien.vn/rss/cong-nghe-game.rss"
+        "https://thanhnien.vn/rss/cong-nghe-game.rss",
+        "https://vnexpress.net/rss/du-lieu.rss",
+        "https://tuoitre.vn/rss/cong-nghe.rss",
+        "https://vietnamnet.vn/rss/tin-moi-nhat.rss",
+        "https://vnexpress.net/rss",
+        "https://news.zing.vn/rss/tin-moi.rss", 
+        "https://news.zing.vn/rss/thoi-su.rss", 
+        "https://news.zing.vn/rss/the-gioi.rss", 
+        "https://news.zing.vn/rss/cong-nghe.rss",
+        "https://news.zing.vn/rss/oto-xe-may.rss", 
+        "https://news.zing.vn/rss/giao-duc.rss",
+        "https://tuoitre.vn/rss.htm", 
+        "https://thanhnien.vn/rss.html", 
+        "http://vietnamnet.vn/vn/rss/", 
+        "https://nld.com.vn/rss.htm", 
+        "http://dantri.com.vn/rss.htm", 
+        "http://soha.vn/rss.htm", 
+        "https://www.24h.com.vn/guest/RSS/", 
+        "https://trainghiemso.vn/feed/", 
+        "https://tinhte.vn/rss/", 
+        "http://www.techrum.vn/forums/-/index.rss", 
+        "http://vnreview.vn/feed/-/rss/home", 
+        "http://ictnews.vn/rss.ict"
     ]
     
-    keywords = ["tự động hóa", "robot", "cnc", "iot", "điều khiển", "nhà máy", "bộ điều khiển", "trí tuệ nhân tạo"]
+    keywords = ["tự động hóa", "robot", "cnc", "iot", "điều khiển", "nhà máy", "bộ điều khiển", "trí tuệ nhân tạo","kỹ thuật điều khiển", "nguyên lý điều khiển", "hệ thống cảm biến", "actuator", "điện tử",  "vi điều khiển", "mạch điện" "lập trình nhúng", "lập trình plc", "hệ thống giám sát scada", "giao diện người – máy", "robot học", "cơ cấu robot", "điều khiển động học", "lập trình robot", "mạng công nghiệp", "giao thức truyền thông công nghiệp", "lắp ráp thiết bị tự động hóa", "vận hành thiết bị tự động hóa", "bảo trì thiết bị tự động hóa", 
+"dự án tự động hóa", "đo lường và cảm biến", "thiết kế điện dân dụng", "kỹ thuật điều khiển", "giám sát hệ thống", "quản lý dự án công nghiệp", "nghiên cứu giải pháp tự động hóa", "phát triển giải pháp tự động hóa", "giải pháp tự động hóa"
+]
     count = 0
     
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
