@@ -12,11 +12,11 @@ st.set_page_config(
     layout="wide"
 )
 
-# Khởi tạo bộ nhớ tạm để giữ trạng thái bài giảng
+# KHỞI TẠO BỘ NHỚ ĐỆM NÂNG CAO CHO HỆ THỐNG
 if "ai_response" not in st.session_state:
     st.session_state.ai_response = None
-if "audio_ready" not in st.session_state:
-    st.session_state.audio_ready = False
+if "audio_bytes" not in st.session_state:
+    st.session_state.audio_bytes = None  # Lưu trực tiếp dữ liệu âm thanh vào bộ nhớ cache
 if "topic_from_news" not in st.session_state:
     st.session_state.topic_from_news = ""
 
@@ -28,7 +28,7 @@ menu_selected = st.sidebar.radio(
 )
 
 # -----------------------------------------------------------------
-# PHÂN HỆ 1: BẢN TIN TỰ ĐỘNG HÓA (GIAO DIỆN PHONG CÁCH BAOMOI)
+# PHÂN HỆ 1: BẢN TIN TỰ ĐỘNG HÓA
 # -----------------------------------------------------------------
 if menu_selected == "📰 Bản Tin Tự Động Hóa (Báo Mới)":
     st.title("📰 Tin Tức & Ứng Dụng Mới Ngành Tự Động Hóa")
@@ -41,7 +41,6 @@ if menu_selected == "📰 Bản Tin Tự Động Hóa (Báo Mới)":
         st.info("Chưa có bản tin nào được duyệt đăng. Vui lòng vào 'Tab Quản Trị' nhập mật khẩu và quét tin tức từ Internet!")
     else:
         for article_id, title, link, image, pub_date in approved_articles:
-            # Tạo layout dạng khung bao giống Báo Mới: Ảnh bên trái, Tiêu đề bên phải
             col1, col2 = st.columns([1, 4])
             with col1:
                 if image:
@@ -52,18 +51,16 @@ if menu_selected == "📰 Bản Tin Tự Động Hóa (Báo Mới)":
                 st.subheader(title)
                 st.write(f"📅 *Ngày đăng:* {pub_date}")
                 
-                # MỞ TAB MỚI THEO YÊU CẦU: Sử dụng thẻ HTML Target="_blank" để bảo vệ bản quyền trang gốc
                 link_html = f'<a href="{link}" target="_blank" style="text-decoration: none;"><button style="background-color: #008CBA; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">🔗 Đọc bài viết gốc</button></a>'
                 st.markdown(link_html, unsafe_allow_html=True)
                 
                 st.write("")
-                # NÚT ĐẨY SANG HỌC TẬP: Lưu chủ đề bài báo vào bộ nhớ và nhảy sang Tab Trợ lý học tập
                 if st.button(f"🤖 Chuyển bài viết này thành bài giảng AI", key=f"learn_{article_id}"):
                     st.session_state.topic_from_news = title
                     st.success(f"Đã ghi nhớ chủ đề! Hãy bấm chọn mục '📚 Trợ Lý Bài Giảng AI (Phần 1)' ở cột trái để bắt đầu học.")
 
 # -----------------------------------------------------------------
-# PHÂN HỆ 2: TRỢ LÝ BÀI GIẢNG AI (PHẦN 1 ĐÃ HOÀN THÀNH)
+# PHÂN HỆ 2: TRỢ LÝ BÀI GIẢNG AI (ĐÃ VÁ LỖI AUDIO)
 # -----------------------------------------------------------------
 elif menu_selected == "📚 Trợ Lý Bài Giảng AI (Phần 1)":
     st.title("📚 Trợ Lý Học Tập Tự Động Hóa Thông Minh")
@@ -73,15 +70,17 @@ elif menu_selected == "📚 Trợ Lý Bài Giảng AI (Phần 1)":
     st.sidebar.header("🎯 Cấu hình bài học")
     cap_do = st.sidebar.radio(
         "Chọn cấp độ giải thích:",
-        ["Dễ hiểu (Mới bắt đầu)", "Trung bình (Có nền tảng)", "Chuyên sâu (Nghiên cứu cấu trúc kỹ thuật)"], index=1
+        ["Dễ hiểu (Mới bắt đầu)", "Trung bình (Có nền tảng)", "Chuyên sâu (Nghiên trúc cấu trúc kỹ thuật)"], index=1
     )
     
-    # Nếu học sinh vừa chọn nút đẩy từ bài báo sang, tự động điền tiêu đề vào ô nhập liệu
     default_topic = st.session_state.topic_from_news if st.session_state.topic_from_news else "Lập trình hệ thống tự động hóa PLC, SCADA"
-    
     user_input = st.text_input("Chủ đề cụ thể bạn muốn nghiên cứu học tập:", value=default_topic)
     
     if st.button("🚀 Kích hoạt phòng học AI"):
+        # Reset lại bộ nhớ âm thanh cũ để tránh râu ông nọ cắm cằm bà kia
+        st.session_state.ai_response = None
+        st.session_state.audio_bytes = None
+        
         with st.spinner("Giáo sư AI đang biên soạn giáo trình và tạo đề kiểm tra..."):
             res = generate_content(user_input, cap_do)
             st.session_state.ai_response = res
@@ -91,10 +90,18 @@ elif menu_selected == "📚 Trợ Lý Bài Giảng AI (Phần 1)":
                 try: os.remove(audio_file_path)
                 except: pass
                 
-            with st.spinner("Đang chuyển ngữ bài giảng thành file nghe..."):
+            with st.spinner("🔊 Giọng đọc AI đang chuyển ngữ bài giảng thành audio (Vui lòng đợi vài giây)..."):
+                # Gọi lệnh tạo file âm thanh vật lý
                 success = text_to_speech(res, audio_file_path)
-                st.session_state.audio_ready = success
+                
+                # SỬA LỖI TẠI ĐÂY: Nếu tạo file thành công, đọc ngay file đó thành dữ liệu Bytes và nạp vào Session State
+                if success and os.path.exists(audio_file_path):
+                    with open(audio_file_path, "rb") as f:
+                        st.session_state.audio_bytes = f.read()
+                    try: os.remove(audio_file_path) # Xóa file tạm trên ổ cứng sau khi đã nạp vào bộ nhớ để giải phóng bộ nhớ hosting
+                    except: pass
 
+    # HIỂN THỊ KẾT QUẢ ĐÃ ĐỒNG BỘ
     if st.session_state.ai_response:
         full_text = st.session_state.ai_response
         if "---" in full_text:
@@ -107,8 +114,12 @@ elif menu_selected == "📚 Trợ Lý Bài Giảng AI (Phần 1)":
 
         tab1, tab2 = st.tabs(["📖 Bài Giảng & Audio", "✍️ Phiếu Trắc Nghiệm Đánh Giá"])
         with tab1:
-            if st.session_state.audio_ready and os.path.exists("lesson_audio.mp3"):
-                st.audio("lesson_audio.mp3", format="audio/mp3")
+            # SỬA LỖI TẠI ĐÂY: Phát nhạc trực tiếp từ dữ liệu Bytes trong bộ nhớ cache, tốc độ phản hồi tức thì 0 giây
+            if st.session_state.audio_bytes is not None:
+                st.audio(st.session_state.audio_bytes, format="audio/mp3")
+            else:
+                st.warning("⚠️ Âm thanh bài giảng đang được đồng bộ hóa hoặc nội dung quá ngắn để phát. Vui lòng thử lại.")
+                
             st.markdown(bai_giang_part)
         with tab2:
             if quiz_part:
@@ -117,22 +128,20 @@ elif menu_selected == "📚 Trợ Lý Bài Giảng AI (Phần 1)":
                 st.info("Câu hỏi trắc nghiệm tích hợp trực tiếp trong văn bản bài giảng.")
 
 # -----------------------------------------------------------------
-# PHÂN HỆ 3: TAB QUẢN TRỊ BẢO MẬT (DUYỆT TIN TỨC)
+# PHÂN HỆ 3: TAB QUẢN TRỊ BẢO MẬT
 # -----------------------------------------------------------------
 elif menu_selected == "🔐 Tab Quản Trị Hệ Thống":
     st.title("🔐 Cổng Quản Trị & Phê Duyệt Tin Tức Internet")
     st.markdown("---")
     
-    # Kiểm tra mật khẩu an toàn
     password_input = st.text_input("Nhập mật khẩu quản trị để truy cập:", type="password")
     correct_password = os.getenv("ADMIN_PASSWORD", "123456")
     
     if password_input != correct_password:
-        st.warning("Vui lòng nhập chính xác mật khẩu Admin được cấu hình trong file .env để thực hiện duyệt bài.")
+        st.warning("Vui lòng nhập chính xác mật khẩu Admin để thực hiện duyệt bài.")
     else:
         st.success("Mật khẩu chính xác! Đang mở bảng điều khiển quản trị.")
         
-        # NÚT BẤM KÍCH HOẠT SCRAPE CÀO TIN TỰ ĐỘNG TRONG 3 NGÀY GẦN NHẤT
         if st.button("🔍 Quét & Tìm kiếm tin tức Tự động hóa mới trên Internet"):
             with st.spinner("Hệ thống robot đang dò tìm bài viết từ các trang khoa học công nghệ uy tín..."):
                 num_scraped = scrape_automation_news()
@@ -151,7 +160,6 @@ elif menu_selected == "🔐 Tab Quản Trị Hệ Thống":
                     if image:
                         st.image(image, width=200)
                     
-                    # Tạo 2 nút Duyệt đăng hoặc Bỏ qua trên cùng 1 hàng
                     c1, c2, c3 = st.columns([1, 1, 4])
                     with c1:
                         if st.button("✅ Duyệt Đăng", key=f"app_{news_id}"):
