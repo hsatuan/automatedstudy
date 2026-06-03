@@ -100,71 +100,74 @@ def text_to_speech(text, output_path):
 
 def scrape_automation_news():
     """
-    HÀM SỬA ĐỔI PHẦN 2: Tự động quét và tìm kiếm tin tức Tự động hóa mới nhất
-    Sử dụng các kênh dữ liệu mở, an toàn, không lo bị trang báo chặn bot.
+    HÀM ĐÃ SỬA LỖI: Tự động quét tin tức, tối ưu cấu trúc XML an toàn chống crash
     """
-    # Các nguồn cấp tin công nghệ và tự động hóa uy tín (RSS Feeds)
+    # Chuẩn hóa lại các đường dẫn RSS Feeds hoạt động ổn định nhất hiện tại
     rss_urls = [
         "https://vnexpress.net/rss/khoa-hoc.rss",
-        "https://thanhnien.vn/rss/cong-nghe-game.rss",
-        "https://vnexpress.net/rss/du-lieu.rss",
-        "https://tuoitre.vn/rss/cong-nghe.rss",
-        "https://vietnamnet.vn/rss/tin-moi-nhat.rss",
-        "https://vnexpress.net/rss",
-        "https://news.zing.vn/rss/tin-moi.rss", 
-        "https://news.zing.vn/rss/thoi-su.rss", 
-        "https://news.zing.vn/rss/the-gioi.rss", 
-        "https://news.zing.vn/rss/cong-nghe.rss",
-        "https://news.zing.vn/rss/oto-xe-may.rss", 
-        "https://news.zing.vn/rss/giao-duc.rss",
-        "https://tuoitre.vn/rss.htm", 
-        "https://thanhnien.vn/rss.html", 
-        "http://vietnamnet.vn/vn/rss/", 
-        "https://nld.com.vn/rss.htm", 
-        "http://dantri.com.vn/rss.htm", 
-        "http://soha.vn/rss.htm", 
-        "https://www.24h.com.vn/guest/RSS/", 
-        "https://trainghiemso.vn/feed/", 
-        "https://tinhte.vn/rss/", 
-        "http://www.techrum.vn/forums/-/index.rss", 
-        "http://vnreview.vn/feed/-/rss/home", 
-        "http://ictnews.vn/rss.ict"
+        "https://vnexpress.net/rss/so-hoa.rss",
+        "https://tuoitre.vn/rss/khoa-hoc-cong-nghe.rss",
+        "https://vietnamnet.vn/rss/cong-nghe.rss",
+        "https://thanhnien.vn/rss/cong-nghe-thong-tin.rss",
+        "https://dantri.com.vn/suc-manh-so.rss",
+        "https://tinhte.vn/rss/"
     ]
     
-    keywords = ["tự động hóa", "robot", "cnc", "iot", "điều khiển", "nhà máy", "bộ điều khiển", "trí tuệ nhân tạo","kỹ thuật điều khiển", "nguyên lý điều khiển", "hệ thống cảm biến", "actuator", "điện tử",  "vi điều khiển", "mạch điện" "lập trình nhúng", "lập trình plc", "hệ thống giám sát scada", "giao diện người – máy", "robot học", "cơ cấu robot", "điều khiển động học", "lập trình robot", "mạng công nghiệp", "giao thức truyền thông công nghiệp", "lắp ráp thiết bị tự động hóa", "vận hành thiết bị tự động hóa", "bảo trì thiết bị tự động hóa", 
-"dự án tự động hóa", "đo lường và cảm biến", "thiết kế điện dân dụng", "kỹ thuật điều khiển", "giám sát hệ thống", "quản lý dự án công nghiệp", "nghiên cứu giải pháp tự động hóa", "phát triển giải pháp tự động hóa", "giải pháp tự động hóa"
-]
-    count = 0
+    # ĐÃ VÁ LỖI CÚ PHÁP: Bổ sung các dấu phẩy đầy đủ cho mảng từ khóa
+    keywords = [
+        "tự động hóa", "robot", "cnc", "iot", "điều khiển", "nhà máy", "bộ điều khiển", "trí tuệ nhân tạo",
+        "kỹ thuật điều khiển", "nguyên lý điều khiển", "hệ thống cảm biến", "actuator", "điện tử",  
+        "vi điều khiển", "mạch điện", "lập trình nhúng", "lập trình plc", "hệ thống giám sát scada", 
+        "giao diện người – máy", "robot học", "cơ cấu robot", "điều khiển động học", "lập trình robot", 
+        "mạng công nghiệp", "giao thức truyền thông công nghiệp", "lắp ráp thiết bị tự động hóa", 
+        "vận hành thiết bị tự động hóa", "bảo trì thiết bị tự động hóa", "dự án tự động hóa", 
+        "đo lường và cảm biến", "thiết kế điện dân dụng", "giám sát hệ thống", "quản lý dự án công nghiệp", 
+        "nghiên cứu giải pháp tự động hóa", "phát triển giải pháp tự động hóa", "giải pháp tự động hóa"
+    ]
     
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+    count = 0
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
     
     for url in rss_urls:
         try:
             req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=10) as response:
+            with urllib.request.urlopen(req, timeout=12) as response:
                 xml_data = response.read()
             
             root = ET.fromstring(xml_data)
             for item in root.findall('.//item'):
-                title = item.find('title').text
-                link = item.find('link').text
-                pub_date = item.find('pubDate').text if item.find('pubDate') is not None else ""
-                
-                # Kiểm tra xem tiêu đề bài báo có chứa từ khóa liên quan đến Tự động hóa hay không
-                if any(kw in title.lower() for kw in keywords):
-                    # Tự động quét ảnh đại diện OpenGraph từ link gốc bài viết
-                    image_url = "https://via.placeholder.com/150"  # Ảnh mặc định nếu lỗi
-                    try:
-                        og = OpenGraph(url=link)
-                        if og.is_valid() and 'image' in og:
-                            image_url = og['image']
-                    except:
-                        pass
+                try:
+                    # BẢO VỆ AN TOÀN: Kiểm tra xem các thẻ XML có tồn tại text hay không để tránh lỗi NoneType
+                    title_elem = item.find('title')
+                    link_elem = item.find('link')
                     
-                    # Đẩy bài viết vào hàng chờ duyệt trong cơ sở dữ liệu
-                    add_pending_news(title, link, image_url, pub_date)
-                    count += 1
+                    if title_elem is None or link_elem is None or not title_elem.text or not link_elem.text:
+                        continue  # Bỏ qua bản tin bị lỗi cấu trúc, chạy tiếp bài sau
+                        
+                    title = title_elem.text.strip()
+                    link = link_elem.text.strip()
+                    
+                    pub_date_elem = item.find('pubDate')
+                    pub_date = pub_date_elem.text.strip() if pub_date_elem is not None and pub_date_elem.text else ""
+                    
+                    # Kiểm tra từ khóa thông minh bằng cách chuẩn hóa chữ thường
+                    if any(kw in title.lower() for kw in keywords):
+                        image_url = "https://via.placeholder.com/150"
+                        try:
+                            # Tách OpenGraph lấy ảnh đại diện, bọc trong try-except để nếu lỗi link vẫn không làm dừng vòng lặp
+                            og = OpenGraph(url=link)
+                            if og.is_valid() and 'image' in og:
+                                image_url = og['image']
+                        except:
+                            pass
+                        
+                        add_pending_news(title, link, image_url, pub_date)
+                        count += 1
+                except Exception as item_error:
+                    # Lỗi ở một bài viết nhỏ không làm sập việc quét các bài viết khác
+                    continue
+                    
         except Exception as e:
-            print(f"Lỗi khi quét nguồn {url}: {e}")
+            print(f"Lỗi khi quét nguồn RSS [{url}]: {e}")
             
     return count
