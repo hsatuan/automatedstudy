@@ -1,7 +1,7 @@
 import streamlit as st
 import os
 from database import get_approved_news, get_pending_news, approve_news, reject_news
-from utils import generate_content, text_to_speech, scrape_automation_news
+from utils import generate_content, text_to_speech
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -12,13 +12,15 @@ st.set_page_config(
     layout="wide"
 )
 
-# KHỞI TẠO BỘ NHỚ ĐỆM NÂNG CAO CHO HỆ THỐNG
+# Khởi tạo bộ nhớ tạm để giữ trạng thái hệ thống ổn định
 if "ai_response" not in st.session_state:
     st.session_state.ai_response = None
-if "audio_bytes" not in st.session_state:
-    st.session_state.audio_bytes = None  # Lưu trực tiếp dữ liệu âm thanh vào bộ nhớ cache
+if "audio_ready" not in st.session_state:
+    st.session_state.audio_ready = False
 if "topic_from_news" not in st.session_state:
     st.session_state.topic_from_news = ""
+if "admin_logged_in" not in st.session_state:
+    st.session_state.admin_logged_in = False
 
 # THANH ĐIỀU HƯỚNG SIDEBAR
 st.sidebar.title("🤖 MENU HỆ THỐNG")
@@ -28,11 +30,11 @@ menu_selected = st.sidebar.radio(
 )
 
 # -----------------------------------------------------------------
-# PHÂN HỆ 1: BẢN TIN TỰ ĐỘNG HÓA
+# PHÂN HỆ 1: BẢN TIN TỰ ĐỘNG HÓA (GIAO DIỆN CHUẨN BAOMOI.COM 3 TẦNG)
 # -----------------------------------------------------------------
 if menu_selected == "📰 Bản Tin Tự Động Hóa (Báo Mới)":
     st.title("📰 Tin Tức & Ứng Dụng Mới Ngành Tự Động Hóa")
-    st.caption("Kênh tổng hợp thông tin công nghệ tiên tiến được chọn lọc từ người quản trị.")
+    st.caption("Kênh tổng hợp thông tin cấu trúc đa tầng chuẩn phong cách Baomoi.com")
     st.markdown("---")
     
     approved_articles = get_approved_news()
@@ -40,132 +42,172 @@ if menu_selected == "📰 Bản Tin Tự Động Hóa (Báo Mới)":
     if not approved_articles:
         st.info("Chưa có bản tin nào được duyệt đăng. Vui lòng vào 'Tab Quản Trị' nhập mật khẩu và quét tin tức từ Internet!")
     else:
-        for article_id, title, link, image, pub_date in approved_articles:
-            col1, col2 = st.columns([1, 4])
-            with col1:
-                if image:
-                    st.image(image, use_container_width=True)
+        # Cấu trúc lặp qua từng cụm Block (Mỗi block tối đa 5 bài tin)
+        # Để tạo sự đa dạng, chúng ta gom nhóm các bài báo thành từng Block lớn
+        block_size = 5
+        for b_idx in range(0, len(approved_articles), block_size):
+            block_articles = approved_articles[b_idx:b_idx + block_size]
+            
+            st.markdown(f"### 🌐 CỤM TIN CÔNG NGHỆ CHUYỂN ĐỘNG #{ (b_idx//block_size) + 1 }")
+            
+            # --- TẦNG 1: Dòng đầu tiên - 1 Tin lớn có ảnh to chiếm trọn không gian ---
+            hot_news = block_articles[0]
+            col_hot_img, col_hot_txt = st.columns([1, 1], gap="medium")
+            with col_hot_img:
+                if hot_news[3]:
+                    st.image(hot_news[3], width="stretch")
                 else:
-                    st.image("https://via.placeholder.com/150", use_container_width=True)
-            with col2:
-                st.subheader(title)
-                st.write(f"📅 *Ngày đăng:* {pub_date}")
+                    st.image("https://via.placeholder.com/600x350", width="stretch")
+            with col_hot_txt:
+                st.subheader(hot_news[1])
+                st.caption(f"📅 *Báo mới đăng* | {hot_news[4]}")
+                st.write("Bản tin tự động hóa công nghiệp được chọn lọc phân tích chuyên sâu.")
                 
-                link_html = f'<a href="{link}" target="_blank" style="text-decoration: none;"><button style="background-color: #008CBA; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">🔗 Đọc bài viết gốc</button></a>'
-                st.markdown(link_html, unsafe_allow_html=True)
+                c1, c2 = st.columns([1, 1])
+                with c1:
+                    st.markdown(f'<a href="{hot_news[2]}" target="_blank"><button style="background-color: #008CBA; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%;">🔗 Xem bài gốc</button></a>', unsafe_allow_html=True)
+                with c2:
+                    if st.button("🤖 Chuyển thành bài giảng AI", key=f"btn_hot_{hot_news[0]}", use_container_width=True):
+                        st.session_state.topic_from_news = hot_news[1]
+                        st.success("Đã ghi nhớ! Mời qua tab Trợ Lý AI.")
+            
+            st.markdown("<div style='margin: 15px 0;'></div>", unsafe_allow_html=True)
+            
+            # --- TẦNG 2: Dòng thứ hai - Chia thành 2 cột độc lập, mỗi cột 1 tin ---
+            sub_articles_tier2 = block_articles[1:3]
+            if sub_articles_tier2:
+                col_t2_1, col_t2_2 = st.columns(2, gap="large")
                 
-                st.write("")
-                if st.button(f"🤖 Chuyển bài viết này thành bài giảng AI", key=f"learn_{article_id}"):
-                    st.session_state.topic_from_news = title
-                    st.success(f"Đã ghi nhớ chủ đề! Hãy bấm chọn mục '📚 Trợ Lý Bài Giảng AI (Phần 1)' ở cột trái để bắt đầu học.")
+                for idx, news in enumerate(sub_articles_tier2):
+                    target_col = col_t2_1 if idx == 0 else col_t2_2
+                    with target_col:
+                        if news[3]:
+                            st.image(news[3], width="stretch")
+                        else:
+                            st.image("https://via.placeholder.com/300x180", width="stretch")
+                        st.markdown(f"##### {news[1]}")
+                        st.caption(f"📅 {news[4]}")
+                        
+                        cx1, cx2 = st.columns(2)
+                        with cx1:
+                            st.markdown(f'<a href="{news[2]}" target="_blank" style="text-decoration:none; color:#008CBA; font-weight:bold; font-size:13px;">👉 Đọc nguồn</a>', unsafe_allow_html=True)
+                        with cx2:
+                            if st.button("🤖 Học bài", key=f"btn_t2_{news[0]}"):
+                                st.session_state.topic_from_news = news[1]
+                                st.success("Đã nạp tiêu đề!")
+            
+            st.markdown("<div style='margin: 15px 0;'></div>", unsafe_allow_html=True)
+            
+            # --- TẦNG 3: Dòng thứ ba trở đi - Trở về dạng 1 cột dọc bài viết ---
+            sub_articles_tier3 = block_articles[3:5]
+            for news in sub_articles_tier3:
+                col_t3_img, col_t3_txt = st.columns([1, 4])
+                with col_t3_img:
+                    if news[3]:
+                        st.image(news[3], width="stretch")
+                    else:
+                        st.image("https://via.placeholder.com/150", width="stretch")
+                with col_t3_txt:
+                    st.markdown(f"**{news[1]}**")
+                    st.caption(f"📅 {news[4]} | [🔗 Ghé thăm trang gốc]({news[2]})")
+                    if st.button("🤖 Chuyển sang phòng học AI", key=f"btn_t3_{news[0]}"):
+                        st.session_state.topic_from_news = news[1]
+                        st.success("Đã chuyển!")
+                st.markdown("<hr style='margin: 10px 0; border-top: 1px dashed #ddd;' />", unsafe_allow_html=True)
+            
+            st.markdown("<br><hr style='border-top: 3px double #bbb;' /><br>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------
-# PHÂN HỆ 2: TRỢ LÝ BÀI GIẢNG AI (ĐÃ VÁ LỖI AUDIO)
+# PHÂN HỆ 2: TRỢ LÝ BÀI GIẢNG AI (CẬP NHẬT TRÁNH CRASH KHI HẾT QUOTA GEMINI)
 # -----------------------------------------------------------------
 elif menu_selected == "📚 Trợ Lý Bài Giảng AI (Phần 1)":
     st.title("📚 Trợ Lý Học Tập Tự Động Hóa Thông Minh")
-    st.caption("Cá nhân hóa tri thức: Bài giảng chuyên sâu - Giọng đọc AI - 5 Câu hỏi trắc nghiệm")
     st.markdown("---")
     
-    st.sidebar.header("🎯 Cấu hình bài học")
-    cap_do = st.sidebar.radio(
-        "Chọn cấp độ giải thích:",
-        ["Dễ hiểu (Mới bắt đầu)", "Trung bình (Có nền tảng)", "Chuyên sâu (Nghiên trúc cấu trúc kỹ thuật)"], index=1
-    )
-    
+    cap_do = st.sidebar.radio("Cấp độ bài học:", ["Dễ hiểu", "Trung bình", "Chuyên sâu"], index=1)
     default_topic = st.session_state.topic_from_news if st.session_state.topic_from_news else "Lập trình hệ thống tự động hóa PLC, SCADA"
-    user_input = st.text_input("Chủ đề cụ thể bạn muốn nghiên cứu học tập:", value=default_topic)
+    user_input = st.text_input("Chủ đề học tập:", value=default_topic)
     
     if st.button("🚀 Kích hoạt phòng học AI"):
-        # Reset lại bộ nhớ âm thanh cũ để tránh râu ông nọ cắm cằm bà kia
-        st.session_state.ai_response = None
-        st.session_state.audio_bytes = None
-        
-        with st.spinner("Giáo sư AI đang biên soạn giáo trình và tạo đề kiểm tra..."):
+        with st.spinner("Giáo sư AI đang biên soạn giáo trình..."):
             res = generate_content(user_input, cap_do)
-            st.session_state.ai_response = res
             
-            audio_file_path = "lesson_audio.mp3"
-            if os.path.exists(audio_file_path):
-                try: os.remove(audio_file_path)
-                except: pass
-                
-            with st.spinner("🔊 Giọng đọc AI đang chuyển ngữ bài giảng thành audio (Vui lòng đợi vài giây)..."):
-                # Gọi lệnh tạo file âm thanh vật lý
-                success = text_to_speech(res, audio_file_path)
-                
-                # SỬA LỖI TẠI ĐÂY: Nếu tạo file thành công, đọc ngay file đó thành dữ liệu Bytes và nạp vào Session State
-                if success and os.path.exists(audio_file_path):
-                    with open(audio_file_path, "rb") as f:
-                        st.session_state.audio_bytes = f.read()
-                    try: os.remove(audio_file_path) # Xóa file tạm trên ổ cứng sau khi đã nạp vào bộ nhớ để giải phóng bộ nhớ hosting
+            # Bắt lỗi cạn kiệt Quota API để dừng xử lý TTS, bảo vệ hệ thống
+            if "RESOURCE_EXHAUSTED" in res or "Lỗi" in res:
+                st.session_state.ai_response = res
+                st.session_state.audio_ready = False
+            else:
+                st.session_state.ai_response = res
+                audio_file_path = "lesson_audio.mp3"
+                if os.path.exists(audio_file_path):
+                    try: os.remove(audio_file_path)
                     except: pass
+                success = text_to_speech(res, audio_file_path)
+                st.session_state.audio_ready = success
 
-    # HIỂN THỊ KẾT QUẢ ĐÃ ĐỒNG BỘ
     if st.session_state.ai_response:
-        full_text = st.session_state.ai_response
-        if "---" in full_text:
-            parts = full_text.split("---")
-            bai_giang_part = parts[0]
-            quiz_part = parts[1]
+        if "RESOURCE_EXHAUSTED" in st.session_state.ai_response:
+            st.error("⚠️ Khóa API Gemini Miễn Phí của bạn hiện tại đã tạm thời hết lượt dùng trong ngày hôm nay (Vượt quá Quota giới hạn). Vui lòng thử lại sau vài phút hoặc đổi API Key mới trong file `.env` nhé!")
         else:
-            bai_giang_part = full_text
-            quiz_part = ""
-
-        tab1, tab2 = st.tabs(["📖 Bài Giảng & Audio", "✍️ Phiếu Trắc Nghiệm Đánh Giá"])
-        with tab1:
-            # SỬA LỖI TẠI ĐÂY: Phát nhạc trực tiếp từ dữ liệu Bytes trong bộ nhớ cache, tốc độ phản hồi tức thì 0 giây
-            if st.session_state.audio_bytes is not None:
-                st.audio(st.session_state.audio_bytes, format="audio/mp3")
-            else:
-                st.warning("⚠️ Âm thanh bài giảng đang được đồng bộ hóa hoặc nội dung quá ngắn để phát. Vui lòng thử lại.")
-                
-            st.markdown(bai_giang_part)
-        with tab2:
-            if quiz_part:
-                st.markdown(quiz_part)
-            else:
-                st.info("Câu hỏi trắc nghiệm tích hợp trực tiếp trong văn bản bài giảng.")
+            tab1, tab2 = st.tabs(["📖 Bài Giảng & Audio", "✍️ Phiếu Trắc Nghiệm Đánh Giá"])
+            with tab1:
+                if st.session_state.audio_ready and os.path.exists("lesson_audio.mp3"):
+                    st.audio("lesson_audio.mp3", format="audio/mp3")
+                st.markdown(st.session_state.ai_response.split("---")[0])
+            with tab2:
+                if "---" in st.session_state.ai_response:
+                    st.markdown(st.session_state.ai_response.split("---")[1])
 
 # -----------------------------------------------------------------
-# PHÂN HỆ 3: TAB QUẢN TRỊ BẢO MẬT
+# PHÂN HỆ 3: TAB QUẢN TRỊ HỆ THỐNG
 # -----------------------------------------------------------------
 elif menu_selected == "🔐 Tab Quản Trị Hệ Thống":
-    st.title("🔐 Cổng Quản Trị & Phê Duyệt Tin Tức Internet")
+    st.title("🔐 Cổng Quản Trị Hệ Thống")
     st.markdown("---")
     
-    password_input = st.text_input("Nhập mật khẩu quản trị để truy cập:", type="password")
     correct_password = os.getenv("ADMIN_PASSWORD", "123456")
     
-    if password_input != correct_password:
-        st.warning("Vui lòng nhập chính xác mật khẩu Admin để thực hiện duyệt bài.")
-    else:
-        st.success("Mật khẩu chính xác! Đang mở bảng điều khiển quản trị.")
-        
-        if st.button("🔍 Quét & Tìm kiếm tin tức Tự động hóa mới trên Internet"):
-            with st.spinner("Hệ thống robot đang dò tìm bài viết từ các trang khoa học công nghệ uy tín..."):
-                num_scraped = scrape_automation_news()
-                st.balloons()
-                st.success(f"Quét thành công! Tìm thấy thêm {num_scraped} bài viết liên quan ngành Tự động hóa ở hàng chờ.")
-        
-        st.subheader("📋 Danh sách các bài viết chờ phê duyệt (Pending)")
-        pending_list = get_pending_news()
-        
-        if not pending_list:
-            st.info("Hiện tại hàng chờ trống. Hãy bấm nút 'Quét & Tìm kiếm' ở trên để cập nhật tin mới từ Internet.")
-        else:
-            for news_id, title, link, image, pub_date in pending_list:
-                with st.expander(f"📰 {title} ({pub_date})"):
-                    st.write(f"🔗 **Đường dẫn gốc:** {link}")
-                    if image:
-                        st.image(image, width=200)
-                    
-                    c1, c2, c3 = st.columns([1, 1, 4])
-                    with c1:
-                        if st.button("✅ Duyệt Đăng", key=f"app_{news_id}"):
-                            approve_news(news_id)
-                            st.rerun()
-                    with c2:
-                        if st.button("❌ Bỏ Qua", key=f"rej_{news_id}"):
-                            reject_news(news_id)
-                            st.rerun()
+    if not st.session_state.admin_logged_in:
+        password_input = st.text_input("Nhập mật khẩu quản trị:", type="password")
+        if st.button("🔑 Đăng nhập"):
+            if password_input == correct_password:
+                st.session_state.admin_logged_in = True
+                st.rerun()
+            else:
+                st.error("Mật khẩu sai!")
+                
+    if st.session_state.admin_logged_in:
+        col_actions, col_view = st.columns([1, 1], gap="medium")
+        with col_actions:
+            st.subheader("🛠️ Hành động")
+            # Nút quét dữ liệu được cô lập
+            if st.button("🔍 Quét & Tìm kiếm dữ liệu mới", type="primary"):
+                from utils import scrape_automation_news
+                with st.spinner("Đang cào dữ liệu công nghệ..."):
+                    num = scrape_automation_news()
+                    st.success(f"Tìm thấy thành công {num} bài viết mới trong hàng đợi!")
+                    st.rerun()
+            
+            if st.button("🚪 Đăng xuất"):
+                st.session_state.admin_logged_in = False
+                st.rerun()
+                
+        with col_view:
+            st.subheader("📋 Danh sách chờ phê duyệt (Pending)")
+            pending_list = get_pending_news()
+            if not pending_list:
+                st.info("Hàng chờ trống! Hãy nhấn nút quét để nạp dữ liệu.")
+            else:
+                for news_id, title, link, image, pub_date in pending_list:
+                    with st.expander(f"📰 {title}"):
+                        st.write(f"Nguồn: {link}")
+                        if image: st.image(image, width=150)
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            if st.button("✅ Duyệt", key=f"ok_{news_id}"):
+                                approve_news(news_id)
+                                st.rerun()
+                        with c2:
+                            if st.button("❌ Bỏ qua", key=f"no_{news_id}"):
+                                reject_news(news_id)
+                                st.rerun()
